@@ -9,14 +9,20 @@ var isGoogle = function() {
         return false;
     return true;
 }
+var isGmail = function() {
+    return (/^mail\.google\.com$/).test(location.hostname);
+}
 var isFirecracker = function() {
     return (/^med\.firecracker\.me$/).test(location.hostname);
 }
 var isD2L = function() {
     return (/^learn\.ouhsc\.edu$/).test(location.hostname);
 }
+var isYoutube = function() {
+    return (/youtube.com$/).test(location.hostname);
+}
 
-if (!(window == top && (isGoogle() || isFirecracker() || isD2L()))) { 
+if (!(window == top && (isGoogle() || isGmail() || isFirecracker() || isD2L() || isYoutube()))) { 
     return console.log('No extensions for this site.');
 }
 
@@ -67,8 +73,16 @@ if (isGoogle()) {
         }, false);
     };
 
-    // Shortcuts for firecracker.me
-    if (isFirecracker()) {
+    if (isGmail()) {
+        console.log('Detected GMail');
+        var fns = [
+            function() { window.document.styleSheets[0].addRule('td.Bu.y3', 'display:none'); },
+            function() { console.log('Added GMail shortcuts.'); }
+        ];  
+        bridge(fns);
+
+    } else if (isFirecracker()) {
+        // Shortcuts for firecracker.me
         console.log('Detected firecracker.me.');
 
         var fns = [
@@ -215,6 +229,134 @@ if (isGoogle()) {
             function() { key('⌥+/', showCorrect); },
             function() { console.log('Added D2L shortcuts.'); },
         ];
+        bridge(fns);
+    } else if (isYoutube()) {
+        console.log('Detected YouTube.');
+
+        var fns = [
+            keymaster,
+            function() { key('⌥+1', function(){ setSpeed(1); }  ); },
+            function() { key('⌥+2', function(){ setSpeed(1.7); }); },
+            function() { key('⌥+3', function(){ setSpeed(2); }  ); },
+            function() { key('⌥+r', function(){ setDiv(); }); },
+            function() {
+                setSpeed = function(rate) {
+                    vid = document.getElementsByClassName("video-stream html5-main-video")[0];
+                    if(vid) { 
+                        vid.playbackRate = rate; 
+                        vid.tabIndex = 0;
+                        vid.focus(); 
+                    }
+                };
+            },
+            function() { 
+                var replaceAll = function(input,stringToFind,stringToReplaceWith){myRegExp=new RegExp(stringToFind, 'g');return input.replace(myRegExp, stringToReplaceWith);};
+                getVideos = function(){
+                    var formats = {
+                        5:  {   itag: 5,    resolution: 224,    format: "FLV"},
+                        6:  {   itag: 6,    resolution: 270,    format: "FLV"},
+                        13: {   itag: 13,   resolution: 144,    format: "3GP"},
+                        17: {   itag: 17,   resolution: 144,    format: "3GP"},
+                        18: {   itag: 18,   resolution: 360,    format: "MP4"},
+                        22: {   itag: 22,   resolution: 720,    format: "MP4"},
+                        34: {   itag: 34,   resolution: 360,    format: "FLV"},
+                        35: {   itag: 35,   resolution: 480,    format: "FLV"},
+                        36: {   itag: 36,   resolution: 240,    format: "3GP"},
+                        37: {   itag: 37,   resolution: 1080,   format: "MP4"},
+                        38: {   itag: 38,   resolution: 2304,   format: "MP4"},
+                        43: {   itag: 43,   resolution: 360,    format: "WebM"},
+                        44: {   itag: 44,   resolution: 480,    format: "WebM"},
+                        45: {   itag: 45,   resolution: 720,    format: "WebM"},
+                        46: {   itag: 46,   resolution: 1080,   format: "WebM"},
+                        82: {   itag: 82,   resolution: 360,    format: "MP4"},
+                        83: {   itag: 83,   resolution: 240,    format: "MP4"},
+                        84: {   itag: 84,   resolution: 720,    format: "MP4"},
+                        85: {   itag: 85,   resolution: 520,    format: "MP4"},
+                        100:{   itag: 100,  resolution: 360,    format: "WebM"},
+                        101:{   itag: 101,  resolution: 480,    format: "WebM"},
+                        102:{   itag: 102,  resolution: 720,    format: "WebM"}
+                    };
+                    var videos = new Array();
+                    var flashVarsString = '';
+
+                    try{
+                        flashVarsString = document.getElementById('movie_player').attributes.getNamedItem('flashvars').value;
+                        flashVarsString = flashVarsString.substring(flashVarsString.indexOf('url_encoded_fmt_stream_map=')+'url_encoded_fmt_stream_map='.length);
+                        flashVarsString = flashVarsString.substring(0, flashVarsString.indexOf('&'));
+                        flashVarsString = unescape(flashVarsString);
+                        var streamFiles = flashVarsString.split(',');
+                    }catch(err){
+                        return videos;
+                    }
+
+                    for(i in streamFiles){
+                        try{
+                            streamData = streamFiles[i].split('&');
+                            var url = '';
+                            var sig = '';
+                            var itag = 0;
+                            for(y in streamData){
+                                if(streamData[y].indexOf('itag=') == 0){
+                                    itagData = streamData[y].split('=');
+                                    itag = itagData[1];
+                                }
+                                if(streamData[y].indexOf('url=') == 0){
+                                    urlData = streamData[y].split('=');
+                                    url = unescape(urlData[1]);
+                                }
+                                if(streamData[y].indexOf('sig=') == 0){
+                                    sigData = streamData[y].split('=');
+                                    sig = unescape(sigData[1]);
+                                }
+                                
+                            }
+                            if(url != '' && itag != 0){
+                                var video = {formatObject: formats[itag], url: url+'&signature='+sig};
+                                videos.push(video);
+                            }
+                        }catch(err){
+                            console.log(err);
+                        }
+                    }
+                    return videos;
+                }
+                setDiv = function() {
+                    var videos = getVideos();
+                    var title = 'saved video';
+                    // var titleH1 = document.getElementById('watch-headline-title');
+                    // if(titleH1 != null){
+                    //     title = titleH1.children[0].innerText;
+                    // }
+                    title = document.title;
+                    var html = '<div style="-moz-border-radius: 5px; -webkit-border-radius: 5px; border-radius: 3px; border: 1px solid #CCC; margin-bottom: 10px; background-color: #fff;">';
+                    html = html + '<div style="font-weight: bold; padding: 5px; border-bottom: 1px solid #CCC;">Click on the format to save the video as:</div>';
+                    html = html + '<div style="padding: 5px; font-weight: bold;">';
+                    var counter = 0;
+                    if (videos.length == 0) { 
+                        html = html + ' <i>None available</i>';
+                    } else {
+                        for(i in videos){
+                            var video = videos[i];
+                            if(video.url != '' && video.url.indexOf('http') == 0){
+                                if(counter != 0) html = html + ' | ';
+                                if(typeof video.formatObject == 'undefined'){
+                                    html = html + '<span><a href="' + video.url + '&title='+replaceAll(title,'"|:','')+'">Unknown Format</a></span>';
+                                }else{
+                                    html = html + '<span><a href="' + video.url + '&title='+replaceAll(title,'"|:','')+'">' + video.formatObject.resolution + 'p ' + video.formatObject.format + '</a></span>';
+                                }
+                                counter++;
+                            }
+                        }
+                    }
+                    var wpDiv = document.getElementById('watch7-content');
+                    if(wpDiv != null){
+                        wpDiv.innerHTML = html + wpDiv.innerHTML;
+                    }
+                }
+                setDiv();
+            },
+            function() { console.log('Added YouTube shortcuts.'); }
+        ];  
         bridge(fns);
     }
 }
